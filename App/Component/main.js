@@ -1,43 +1,49 @@
+import AsyncStorage from '@react-native-community/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import React from 'react';
 import {
     ActivityIndicator, Dimensions,
-    ScrollView, StyleSheet,
+    Image, ScrollView, StyleSheet,
 
     Text, TouchableOpacity, View
 } from 'react-native';
-import { CachedImage } from "react-native-cached-image";
-
 
 class MainScreen extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
             data: [],
-            isLoading: false
+            isConnected: true
         };
     }
 
-    componentDidMount = () => {
-        fetch('https://jsonplaceholder.typicode.com/photos', {
-            method: "GET",
-        }).then((res) => res.json())
-            .then(result => {
-                this.setState({ data: result, isLoading: true })
-            })
-            .catch((e) => {
-                this.setState({ isLoading: false })
-                console.log('error', e)
-            })
+    componentDidMount = async () => {
+        const state = await NetInfo.fetch()
+        if (state.isConnected) {
+            fetch('https://jsonplaceholder.typicode.com/photos', {
+                method: "GET",
+            }).then((res) => res.json())
+                .then(async (result) => {
+                    await AsyncStorage.setItem('@my_data', JSON.stringify(result))
+                    this.setState({ data: result })
+                })
+                .catch((e) => {
+                    console.log('error', e)
+                })
+        } else {
+            let data = []
+            const localData = await AsyncStorage.getItem('@my_data')
+            data = JSON.parse(localData)
+            return this.setState({ data: data });
+        }
     }
-
     render() {
-        const { data, isLoading } = this.state;
+        const { data } = this.state;
         return (
             <View style={style.parentView}>
                 {
-                    isLoading ? <ActivityIndicator size="large" color="#00ff00" />
-                        :
-                        // <ScrollView contentContainerStyle={style.containerStyle}>
+                    data.length > 0 ?
+
                         <ScrollView
                             horizontal
                             pagingEnabled
@@ -49,9 +55,9 @@ class MainScreen extends React.Component {
                                 data.map((item, index) => {
                                     return (
                                         <View key={index} style={style.mainCard}>
-                                            <CachedImage source={{ uri: item.url }} style={style.mainImageView} />
+                                            <Image source={{ uri: item.url }} style={style.mainImageView} />
                                             <View style={style.innerCircle}>
-                                                <CachedImage source={{ uri: item.thumbnailUrl }} style={style.thumbnailImage} />
+                                                <Image source={{ uri: item.thumbnailUrl }} style={style.thumbnailImage} />
                                             </View>
                                             <Text style={style.textView}>{item.title}</Text>
                                         </View>
@@ -59,6 +65,8 @@ class MainScreen extends React.Component {
                                 })
                             }
                         </ScrollView>
+                        :
+                        <ActivityIndicator size="large" color="#00ff00" />
                 }
                 <TouchableOpacity style={style.button} onPress={() => this.props.navigation.navigate("MapScreen")}>
                     <Text style={style.buttonText}>{"Map View"}</Text>
